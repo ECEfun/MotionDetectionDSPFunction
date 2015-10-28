@@ -5,6 +5,8 @@
 //  Copyright (c) 2015 Linh Nguyen. All rights reserved.
 //
 
+// This Version have response time of 18092 microseconds on Particle Photon
+
 #ifndef __DSPFunction__functions__
 #define __DSPFunction__functions__
 // #include <application.h>
