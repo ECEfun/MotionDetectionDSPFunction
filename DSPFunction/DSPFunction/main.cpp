@@ -35,7 +35,9 @@ int main()
     int Fs = 1000;
     int detector;
     int PIRsum;
-    detector = detect.Detector(XBand, PIR, lenXBand, lenPIR, noise_Var, Vt, signal_Var,Fs,&PIRsum);
+    detect.SetValues(XBand, Fs);
+    int mean = detect.Mean();
+    detector = detect.Detector(XBand, PIR, lenXBand, lenPIR, noise_Var, Vt, signal_Var,Fs,mean,&PIRsum);
     printf("%d\t",detector);
     printf("%d\t",PIRsum);
 //    int Fs = 1000;

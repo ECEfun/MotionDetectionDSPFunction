@@ -190,97 +190,69 @@ void Detection::WMA(volatile float *signal,float *wsignal,int lensignal, int win
  Vt: Threshold using log likelihood ratio
  signal_Var: Signal variance
  Fs: Sampling frequency
+ meanXBVal : mean value of XBand, can also use Mean function but have to setValue first.
  PIRsum: sum of binary integration of PIR sensor
  
  Output: return sum of PIR and Xband binary integration for decision making (EX: 4 out of 5 -> target)
  */
-int Detection::Detector(volatile float *XBsignal,volatile float *PIRsignal, int lenXBsignal, int lenPIRsignal, float noise_Var, float Vt, float signal_Var,int Fs,int *PIRsum)
+int Detection::Detector(volatile float *XBsignal,volatile float *PIRsignal, int lenXBsignal, int lenPIRsignal, float noise_Var, float Vt, float signal_Var,int Fs,float meanXBVal,int *PIRsum)
 {
-    int Fo = 100;
-    int Fo1 = 10;
-    int *BinaryIntegrationXB = NULL;
-    BinaryIntegrationXB = (int*) malloc(Fo1*sizeof(int));
-    int *BinaryIntegrationPIR = NULL;
-    BinaryIntegrationPIR = (int*) malloc(Fo1*sizeof(int));
-    int lendetection = 20;
+    int Fo = 100;  //default for stage 2, 10 observation
+    int Fo1 = 10;  // default stage 1, 10 observation
     int *stage1Detection = NULL;
-    //    int *detection;
-    //    detection = (int*) calloc(lendetection,sizeof(int));
     stage1Detection = (int*) malloc(Fo*sizeof(int));
     float *XFiltered = NULL;
-    int sum = 0;
     
     float lrt =(2*pow(noise_Var,2)*pow(signal_Var,2)/(pow(signal_Var,2) - pow(noise_Var,2)))*log(Vt) - (Fs/Fo)*log(noise_Var/signal_Var);
     
-    Detection::SetValues(XBsignal, lenXBsignal);
-    mean = Detection::Mean();
+    // Detection::SetValues(XBsignal, lenXBsignal);
+    mean = meanXBVal;
     XFiltered = (float*) malloc(Fs*sizeof(float));
-    Detection::WMA(XBsignal,XFiltered,lenXBsignal,9);
-    
+    Detection::WMA(XBsignal,XFiltered,lenXBsignal,7);
+    // do not need mean value anymore free memory
+    free(value);
+    value = NULL;
+    int sumXB = 0;
+    int sumPIR = 0;
+    int stage2Observation = 0;
+    int sumXBandstage2 = 0;
+    int sumPIRstage2 = 0;
     
     for (int observation = 0;observation < Fo; observation++)
     {
         float sumxobssq = 0;
-        for (int i = 0; i < Fs/Fo; i++)
+        for (int i = 0; i < Fo1; i++)
         {
             sumxobssq = sumxobssq + pow(XFiltered[i + (Fs/Fo)*observation],2);
         }
         if (sumxobssq > lrt)
         {
-            stage1Detection[observation] = 1;
+            sumXB = sumXB + 1;
         }
-        else
-            stage1Detection[observation] = 0;
-    }
-    
-    
-    for (int observation = 0; observation < Fo1;observation++)
-    {
-        float sumXB = 0;
-        float sumPIR = 0;
-        for (int i = 0; i < Fo1; i++)
+        sumPIR = sumPIR + PIRsignal[observation];
+        stage2Observation++;
+        if (stage2Observation == Fo1)
         {
-            sumXB = sumXB + stage1Detection[i+observation*Fo1];
-            sumPIR = sumPIR + PIRsignal[i+observation*Fo1];
+            if (sumXB > 7)
+                sumXBandstage2 =  sumXBandstage2 + 1;
+            if (sumPIR > 7)
+                sumPIRstage2 = sumPIRstage2 + 1;
             
+            stage2Observation = 0;
+            sumPIR = 0;
+            sumXB = 0;
         }
-        if (sumXB > 7)
-            BinaryIntegrationXB[observation] = 1;
-        else
-            BinaryIntegrationXB[observation] = 0;
-        if (sumPIR > 4)
-            BinaryIntegrationPIR[observation] = 1;
-        else
-            BinaryIntegrationPIR[observation] = 0;
     }
-    // for testing array of decition
-    //    for (int i = 0; i < lendetection/2;i++)
-    //    {
-    //        detection[i] = BinaryIntegrationXB[i];
-    //        detection[lendetection-i-1] = BinaryIntegrationPIR[i];
-    //    }
-    //
-    //    return detection;
-    int sumPIR = 0;
-    for (int i = 0; i < lendetection/2; i++)
-    {
-        sum = sum + BinaryIntegrationXB[i] + BinaryIntegrationPIR[i];
-        sumPIR = sumPIR + BinaryIntegrationPIR[i];
-    }
-    (*PIRsum) = sumPIR;
-    free(BinaryIntegrationXB);
-    free(BinaryIntegrationPIR);
+    
+    
+    
+    (*PIRsum) = sumPIRstage2;
     free(stage1Detection);
     free(XFiltered);
-    free(value);
-    BinaryIntegrationXB = NULL;
-    BinaryIntegrationPIR = NULL;
     stage1Detection = NULL;
     XFiltered = NULL;
-    value = NULL;
-    return sum;
-    // if (sum > 10)
-    //     return 1;
-    // else
-    //     return 0;
+    return (sumPIRstage2 + sumXBandstage2);
 }
+
+
+

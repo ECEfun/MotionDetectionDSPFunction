@@ -5,8 +5,6 @@
 //  Copyright (c) 2015 Linh Nguyen. All rights reserved.
 //
 
-// This Version have response time of 18092 microseconds on Particle Photon
-
 #ifndef __DSPFunction__functions__
 #define __DSPFunction__functions__
 // #include <application.h>
@@ -37,7 +35,7 @@ public:
     
     void WMA(volatile float *signal,float *wsignal, int lensignal, int window);
     
-    int Detector(volatile float *XBsignal, volatile float *PIRsignal, int lenXBsignal, int lenPIRsignal, float noise_Var, float Vt, float signal_Var, int Fs,int *PIRsum);
+    int Detector(volatile float *XBsignal, volatile float *PIRsignal, int lenXBsignal, int lenPIRsignal, float noise_Var, float Vt, float signal_Var, int Fs,float meanXBVal,int *PIRsum);
     
 private:
     
