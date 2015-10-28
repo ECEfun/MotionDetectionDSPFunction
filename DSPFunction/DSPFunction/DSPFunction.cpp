@@ -201,29 +201,65 @@ int Detection::Detector(volatile float *XBsignal,volatile float *PIRsignal, int 
     int Fo1 = 10;  // default stage 1, 10 observation
     int *stage1Detection = NULL;
     stage1Detection = (int*) malloc(Fo*sizeof(int));
-    float *XFiltered = NULL;
+    int window = 7;  //moving average window, using Matlab to calculate window
+    float *binomialCoeff = NULL;
+    int lenbinomialCoeff;
+    float h[2] = {0.5,0.5};
+    binomialCoeff = (float*) malloc(window*sizeof(float));
+    
+    
+    conv(h,h,2,2,binomialCoeff,&lenbinomialCoeff);
+    
+    for (int n = 1;n<=window-3;n++)
+    {
+        conv(binomialCoeff,h,lenbinomialCoeff,2,binomialCoeff,&lenbinomialCoeff);
+    }
     
     float lrt =(2*pow(noise_Var,2)*pow(signal_Var,2)/(pow(signal_Var,2) - pow(noise_Var,2)))*log(Vt) - (Fs/Fo)*log(noise_Var/signal_Var);
     
     // Detection::SetValues(XBsignal, lenXBsignal);
     mean = meanXBVal;
-    XFiltered = (float*) malloc(Fs*sizeof(float));
-    Detection::WMA(XBsignal,XFiltered,lenXBsignal,7);
+    // XFiltered = (float*) malloc(Fs*sizeof(float));
+    // Detection::WMA(XBsignal,XFiltered,lenXBsignal,7);
     // do not need mean value anymore free memory
-    free(value);
-    value = NULL;
+    //120 usecond up to here
     int sumXB = 0;
     int sumPIR = 0;
     int stage2Observation = 0;
     int sumXBandstage2 = 0;
     int sumPIRstage2 = 0;
-    
+    int k;
     for (int observation = 0;observation < Fo; observation++)
     {
         float sumxobssq = 0;
-        for (int i = 0; i < Fo1; i++)
+        // calculate weighted moving average for each element
+        for (int i = 0; i < Fs/Fo; i++)
         {
-            sumxobssq = sumxobssq + pow(XFiltered[i + (Fs/Fo)*observation],2);
+            float WMA_k = 0;
+            k  = i + (Fs/Fo)*observation;
+            
+            if (k < window - int(window/2))
+            {
+                for (int n = (window/2)-i;n < window;n++)
+                {
+                    WMA_k = WMA_k+binomialCoeff[n]*(XBsignal[n-window/2 + k]-mean);
+                }
+                // wsignal[k] = WMA_k;  //should be devide by sum of weight, but sum of weight = 1 in this case
+            }
+            else if (k < Fs - int(round(window/2)))
+            {
+                for (int n = 0;n<window;n++)
+                {
+                    WMA_k = WMA_k+binomialCoeff[n]*(XBsignal[n+k-int(window/2)]-mean);
+                }
+                // wsignal[k] = WMA_k;  //should be devide by sum of weight, but sum of weight = 1 in this case
+            }
+            else
+            {
+                WMA_k = XBsignal[k] - mean;
+            }
+            //end weighted moving average
+            sumxobssq = sumxobssq + pow(WMA_k,2);  // calculate N*R^2 for log likelihood ratio test
         }
         if (sumxobssq > lrt)
         {
@@ -244,13 +280,11 @@ int Detection::Detector(volatile float *XBsignal,volatile float *PIRsignal, int 
         }
     }
     
-    
-    
     (*PIRsum) = sumPIRstage2;
     free(stage1Detection);
-    free(XFiltered);
+    //  free(XFiltered);
     stage1Detection = NULL;
-    XFiltered = NULL;
+    //  XFiltered = NULL;
     return (sumPIRstage2 + sumXBandstage2);
 }
 
